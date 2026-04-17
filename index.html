@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#1a5276" />
+  <title>HAE Symptom Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    /* ─── Reset & Base ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue-dark:   #1a5276;
+      --blue:        #2471a3;
+      --blue-light:  #d6eaf8;
+      --red:         #c0392b;
+      --red-light:   #fadbd8;
+      --green:       #1e8449;
+      --green-light: #d5f5e3;
+      --amber:       #d68910;
+      --amber-light: #fef9e7;
+      --grey-bg:     #f4f6f8;
+      --grey-border: #d5d8dc;
+      --text:        #1c2833;
+      --text-muted:  #717d7e;
+      --white:       #ffffff;
+      --radius:      10px;
+      --shadow:      0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--grey-bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 16px;
+    }
+
+    /* ─── Header ──────────────────────────────────────────────────── */
+    header {
+      background: var(--blue-dark);
+      color: var(--white);
+      padding: 16px 20px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: 0.3px; }
+    header p  { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
+
+    /* ─── Nav Tabs ───────────────────────────────────────────────── */
+    nav {
+      display: flex;
+      background: var(--white);
+      border-bottom: 2px solid var(--grey-border);
+      position: sticky;
+      top: 61px;
+      z-index: 99;
+    }
+    nav button {
+      flex: 1;
+      padding: 12px 4px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    nav button.active {
+      color: var(--blue-dark);
+      border-bottom-color: var(--blue-dark);
+    }
+
+    /* ─── Content ────────────────────────────────────────────────── */
+    main { padding: 16px; max-width: 640px; margin: 0 auto; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ─── Card ───────────────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--blue-dark);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2 .icon { font-size: 1.2rem; }
+
+    /* ─── Form Fields ────────────────────────────────────────────── */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .field input[type="text"],
+    .field input[type="email"],
+    .field input[type="date"],
+    .field textarea,
+    .field select {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1.5px solid var(--grey-border);
+      border-radius: 8px;
+      font-size: 1rem;
+      color: var(--text);
+      background: var(--white);
+      appearance: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      outline: none;
+      border-color: var(--blue);
+    }
+    .field textarea { min-height: 80px; resize: vertical; }
+
+    /* ─── Segmented Controls ──────────────────────────────────────── */
+    .seg-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .seg-group input[type="radio"] { display: none; }
+    .seg-group label {
+      padding: 8px 12px;
+      border: 1.5px solid var(--grey-border);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--text);
+    }
+    .seg-group input:checked + label {
+      background: var(--blue-dark);
+      border-color: var(--blue-dark);
+      color: var(--white);
+    }
+
+    /* Phase badge colors */
+    .seg-group.phase input:checked + label.pre  { background: var(--blue);  border-color: var(--blue); }
+    .seg-group.phase input:checked + label.post { background: var(--green); border-color: var(--green); }
+
+    /* Blood colors */
+    .seg-group.blood input:checked + label[data-val="none"]          { background: var(--green);  border-color: var(--green); }
+    .seg-group.blood input:checked + label[data-val="wiping"]        { background: #e67e22; border-color: #e67e22; }
+    .seg-group.blood input:checked + label[data-val="trace_bowl"]    { background: #e74c3c; border-color: #e74c3c; }
+    .seg-group.blood input:checked + label[data-val="moderate_bowl"] { background: #c0392b; border-color: #c0392b; }
+    .seg-group.blood input:checked + label[data-val="severe_bowl"]   { background: #7b241c; border-color: #7b241c; }
+    .seg-group.blood input:checked + label[data-val="clots"]         { background: #4a1942; border-color: #4a1942; }
+
+    /* ─── Pain Slider ─────────────────────────────────────────────── */
+    .pain-row { display: flex; align-items: center; gap: 12px; }
+    .pain-row input[type="range"] {
+      flex: 1;
+      height: 6px;
+      accent-color: var(--blue-dark);
+      cursor: pointer;
+    }
+    .pain-badge {
+      min-width: 42px;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--blue-dark);
+    }
+    .pain-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* Bristol scale cards */
+    .bristol-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    @media (max-width: 400px) { .bristol-grid { grid-template-columns: repeat(3, 1fr); } }
+    .bristol-grid input[type="radio"] { display: none; }
+    .bristol-option {
+      border: 2px solid var(--grey-border);
+      border-radius: 8px;
+      padding: 8px 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .bristol-grid input:checked + .bristol-option {
+      border-color: var(--blue-dark);
+      background: var(--blue-light);
+    }
+    .bristol-option .bnum {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--blue-dark);
+    }
+    .bristol-option .bdesc {
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      line-height: 1.2;
+      margin-top: 2px;
+    }
+
+    /* ─── Submit Button ───────────────────────────────────────────── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--blue-dark); color: var(--white); }
+    .btn-secondary { background: var(--grey-border); color: var(--text); margin-top: 8px; }
+    .btn-green  { background: var(--green); color: var(--white); }
+    .btn-amber  { background: var(--amber); color: var(--white); }
+    .btn-red    { background: var(--red); color: var(--white); }
+    .btn:hover { opacity: 0.88; }
+
+    /* ─── Entry History ───────────────────────────────────────────── */
+    .entry-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border-left: 5px solid var(--blue);
+    }
+    .entry-card.post { border-left-color: var(--green); }
+    .entry-card.pre  { border-left-color: var(--blue); }
+
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .entry-datetime { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .entry-datetime small { font-weight: 400; color: var(--text-muted); display: block; }
+
+    .phase-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .phase-badge.pre  { background: var(--blue-light);  color: var(--blue-dark); }
+    .phase-badge.post { background: var(--green-light); color: var(--green); }
+
+    .entry-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .metric {
+      background: var(--grey-bg);
+      border-radius: 6px;
+      padding: 7px 10px;
+    }
+    .metric .mlabel { font-size: 0.67rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+    .metric .mval   { font-size: 0.92rem; font-weight: 700; color: var(--text); margin-top: 1px; }
+
+    .blood-none          { color: var(--green); }
+    .blood-wiping        { color: #e67e22; }
+    .blood-trace_bowl    { color: #e74c3c; }
+    .blood-moderate_bowl { color: #c0392b; }
+    .blood-severe_bowl   { color: #7b241c; font-weight: 900; }
+    .blood-clots         { color: #4a1942; font-weight: 900; }
+
+    .entry-notes {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--grey-border);
+      padding-top: 8px;
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    .entry-delete {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.8rem;
+      margin-top: 8px;
+      padding: 0;
+      text-decoration: underline;
+    }
+    .entry-delete:hover { color: var(--red); }
+
+    /* ─── Empty State ─────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ─── Settings ────────────────────────────────────────────────── */
+    .settings-note {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ─── Export Panel ────────────────────────────────────────────── */
+    .export-section { margin-bottom: 18px; }
+    .export-section h3 { font-size: 0.88rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    .stat-box { background: var(--blue-light); border-radius: 8px; padding: 12px 8px; text-align: center; }
+    .stat-box .sval { font-size: 1.6rem; font-weight: 800; color: var(--blue-dark); }
+    .stat-box .slabel { font-size: 0.68rem; color: var(--blue-dark); opacity: 0.8; margin-top: 2px; }
+
+    /* ─── Toast ───────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #2c3e50;
+      color: white;
+      padding: 12px 22px;
+      border-radius: 24px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      z-index: 9999;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ─── Misc ────────────────────────────────────────────────────── */
+    .divider { height: 1px; background: var(--grey-border); margin: 16px 0; }
+    .row { display: flex; gap: 10px; }
+    .row .field { flex: 1; }
+    .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>HAE Symptom Tracker</h1>
+  <p id="hdr-subtitle">Hemorrhoid Artery Embolization — Patient Log</p>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('log')">+ Log</button>
+  <button onclick="showTab('history')">History</button>
+  <button onclick="showTab('export')">Export</button>
+  <button onclick="showTab('settings')">Settings</button>
+</nav>
+
+<main>
+  <!-- ═══ LOG TAB ═══════════════════════════════════════════════════ -->
+  <div id="tab-log" class="tab-content active">
+
+    <div class="card">
+      <h2><span class="icon">📋</span> New Entry</h2>
+
+      <!-- Date/Time -->
+      <div class="row">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="entry-date" />
+        </div>
+        <div class="field">
+          <label>Time</label>
+          <input type="time" id="entry-time" />
+        </div>
+      </div>
+
+      <!-- Phase -->
+      <div class="field">
+        <label>Procedure Phase</label>
+        <div class="seg-group phase">
+          <input type="radio" name="phase" id="phase-pre" value="pre" checked />
+          <label for="phase-pre" class="pre">Pre-Procedure</label>
+          <input type="radio" name="phase" id="phase-post" value="post" />
+          <label for="phase-post" class="post">Post-Procedure</label>
+        </div>
+        <div class="hint" id="phase-hint"></div>
+      </div>
+
+      <!-- Bristol Stool Scale -->
+      <div class="field">
+        <label>Stool Consistency — Bristol Scale</label>
+        <div class="bristol-grid">
+          <input type="radio" name="consistency" id="b1" value="1" />
+          <label for="b1" class="bristol-option">
+            <div class="bnum">1</div>
+            <div class="bdesc">Hard separate lumps</div>
+          </label>
+
+          <input type="radio" name="consistency" id="b2" value="2" />
+          <label for="b2" class="bristol-option">
+            <div class="bnum">2</div>
+            <div class="bdesc">Lumpy sausage</div>
+          </label>
+
+          <input type="radio" name="consistency" id="b3" value="3" />
+          <label for="b3" class="bristol-option">
+            <div class="bnum">3</div>
+            <div class="bdesc">Cracked sausage</div>
+          </label>
+
+          <input type="radio" name="consistency" id="b4" value="4" checked />
+          <label for="b4" class="bristol-option">
+            <div class="bnum">4</div>
+            <div class="bdesc">Smooth, soft</div>
+          </label>
+
+          <input type="radio" name="consistency" id="b5" value="5" />
+          <label for="b5" class="bristol-option">
+            <div class="bnum">5</div>
+            <div class="bdesc">Soft blobs</div>
+          </label>
+
+          <input type="radio" name="consistency" id="b6" value="6" />
+          <label for="b6" class="bristol-option">
+            <div class="bnum">6</div>
+            <div class="bdesc">Fluffy, mushy</div>
+          </label>
+
+          <input type="radio" name="consistency" id="b7" value="7" />
+          <label for="b7" class="bristol-option">
+            <div class="bnum">7</div>
+            <div class="bdesc">Watery, liquid</div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Blood -->
+      <div class="field">
+        <label>Blood Observed</label>
+        <div class="seg-group blood">
+          <input type="radio" name="blood" id="blood-none" value="none" checked />
+          <label for="blood-none" data-val="none">None</label>
+          <input type="radio" name="blood" id="blood-wiping" value="wiping" />
+          <label for="blood-wiping" data-val="wiping">Blood on wiping</label>
+          <input type="radio" name="blood" id="blood-trace_bowl" value="trace_bowl" />
+          <label for="blood-trace_bowl" data-val="trace_bowl">Trace in bowl</label>
+          <input type="radio" name="blood" id="blood-moderate_bowl" value="moderate_bowl" />
+          <label for="blood-moderate_bowl" data-val="moderate_bowl">Moderate in bowl</label>
+          <input type="radio" name="blood" id="blood-severe_bowl" value="severe_bowl" />
+          <label for="blood-severe_bowl" data-val="severe_bowl">Severe in bowl</label>
+          <input type="radio" name="blood" id="blood-clots" value="clots" />
+          <label for="blood-clots" data-val="clots">Clots in bowl</label>
+        </div>
+      </div>
+
+      <!-- Pain Level -->
+      <div class="field">
+        <label>Pain Level</label>
+        <div class="pain-row">
+          <input type="range" id="pain-slider" min="0" max="10" value="0"
+                 oninput="document.getElementById('pain-display').textContent = this.value; updatePainColor(this.value);" />
+          <div class="pain-badge" id="pain-display">0</div>
+        </div>
+        <div class="pain-labels"><span>0 — None</span><span>5 — Moderate</span><span>10 — Severe</span></div>
+      </div>
+
+      <!-- Hemorrhoid Dilation -->
+      <div class="field">
+        <label>External Hemorrhoid Dilation</label>
+        <div class="seg-group">
+          <input type="radio" name="dilation" id="dil-none" value="none" checked />
+          <label for="dil-none">None</label>
+          <input type="radio" name="dilation" id="dil-mild" value="mild" />
+          <label for="dil-mild">Mild</label>
+          <input type="radio" name="dilation" id="dil-moderate" value="moderate" />
+          <label for="dil-moderate">Moderate</label>
+          <input type="radio" name="dilation" id="dil-severe" value="severe" />
+          <label for="dil-severe">Severe</label>
+        </div>
+      </div>
+
+      <!-- Underwear Protection -->
+      <div class="field">
+        <label>Measures to Protect Underwear</label>
+        <div class="seg-group">
+          <input type="radio" name="protection" id="prot-none" value="none" checked />
+          <label for="prot-none">No protection</label>
+          <input type="radio" name="protection" id="prot-tp" value="tp" />
+          <label for="prot-tp">Toilet paper</label>
+          <input type="radio" name="protection" id="prot-pads" value="pads" />
+          <label for="prot-pads">Pads</label>
+          <input type="radio" name="protection" id="prot-other" value="other" />
+          <label for="prot-other">Other protection</label>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="entry-notes" placeholder="Any additional symptoms, observations, or concerns…"></textarea>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+      <button class="btn btn-secondary" onclick="resetForm()">Clear Form</button>
+    </div>
+
+  </div>
+
+  <!-- ═══ HISTORY TAB ═══════════════════════════════════════════════ -->
+  <div id="tab-history" class="tab-content">
+
+    <div class="card" style="padding:14px 16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <span style="font-size:0.85rem; color:var(--text-muted);" id="history-count">0 entries logged</span>
+        <div style="display:flex; gap:8px;">
+          <select id="filter-phase" onchange="renderHistory()" style="font-size:0.82rem; padding:6px 10px; border:1.5px solid var(--grey-border); border-radius:6px; background:white;">
+            <option value="all">All phases</option>
+            <option value="pre">Pre-Procedure</option>
+            <option value="post">Post-Procedure</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="history-list"></div>
+
+  </div>
+
+  <!-- ═══ EXPORT TAB ═══════════════════════════════════════════════ -->
+  <div id="tab-export" class="tab-content">
+
+    <div class="card">
+      <h2><span class="icon">📊</span> Summary</h2>
+      <div class="stats-grid" id="stats-grid"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="icon">📁</span> Spreadsheet Export</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
+        Download all logged entries as an Excel or CSV file, ready to open in Excel or Google Sheets.
+      </p>
+      <button class="btn btn-green" onclick="exportExcel()">Download Excel (.xlsx)</button>
+      <button class="btn btn-secondary" onclick="exportCSV()" style="margin-top:8px;">Download CSV</button>
+    </div>
+
+    <div class="card">
+      <h2><span class="icon">📧</span> Email to Physician</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
+        Opens your email app with a formatted summary of all entries pre-addressed to your physician.
+        You can attach the exported spreadsheet to the same email.
+      </p>
+      <div class="field">
+        <label>Filter by phase (optional)</label>
+        <select id="email-filter" style="padding:10px 12px; border:1.5px solid var(--grey-border); border-radius:8px; width:100%; font-size:0.95rem;">
+          <option value="all">All entries</option>
+          <option value="pre">Pre-Procedure only</option>
+          <option value="post">Post-Procedure only</option>
+        </select>
+      </div>
+      <button class="btn btn-amber" onclick="sendEmail()">Open Email Draft</button>
+    </div>
+
+  </div>
+
+  <!-- ═══ SETTINGS TAB ══════════════════════════════════════════════ -->
+  <div id="tab-settings" class="tab-content">
+
+    <div class="card">
+      <h2><span class="icon">👤</span> Patient Info</h2>
+      <div class="field">
+        <label>Patient Name</label>
+        <input type="text" id="s-name" placeholder="Full name" />
+      </div>
+      <div class="field">
+        <label>Date of Birth</label>
+        <input type="date" id="s-dob" />
+      </div>
+      <div class="field">
+        <label>Procedure Date</label>
+        <input type="date" id="s-procedure-date" />
+        <p class="settings-note">Used to auto-select Pre/Post phase on the log form.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="icon">🏥</span> Physician Contact</h2>
+      <div class="field">
+        <label>Physician Name</label>
+        <input type="text" id="s-doctor-name" placeholder="Dr. ..." />
+      </div>
+      <div class="field">
+        <label>Physician Email</label>
+        <input type="email" id="s-doctor-email" placeholder="doctor@clinic.com" />
+      </div>
+      <div class="field">
+        <label>Practice / Clinic Name</label>
+        <input type="text" id="s-clinic" placeholder="Clinic name" />
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+
+    <div class="divider"></div>
+
+    <div class="card" style="border:1.5px solid var(--red-light);">
+      <h2 style="color:var(--red);"><span class="icon">⚠️</span> Danger Zone</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
+        Permanently delete all logged entries. This cannot be undone. Export your data first.
+      </p>
+      <button class="btn btn-red" onclick="clearAllData()">Delete All Entries</button>
+    </div>
+
+  </div>
+</main>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  STORAGE HELPERS
+// ═══════════════════════════════════════════════════════════════════
+const ENTRIES_KEY  = 'hae_entries';
+const SETTINGS_KEY = 'hae_settings';
+
+function getEntries() {
+  try { return JSON.parse(localStorage.getItem(ENTRIES_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveEntries(arr) {
+  localStorage.setItem(ENTRIES_KEY, JSON.stringify(arr));
+}
+
+function getSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveSettingsData(obj) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TAB NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const idx = ['log','history','export','settings'].indexOf(name);
+  document.querySelectorAll('nav button')[idx].classList.add('active');
+
+  if (name === 'history') renderHistory();
+  if (name === 'export')  renderExport();
+  if (name === 'settings') loadSettings();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LOG FORM
+// ═══════════════════════════════════════════════════════════════════
+const BRISTOL_LABELS = {
+  1: 'Type 1 — Hard separate lumps',
+  2: 'Type 2 — Lumpy sausage',
+  3: 'Type 3 — Cracked sausage',
+  4: 'Type 4 — Smooth & soft',
+  5: 'Type 5 — Soft blobs',
+  6: 'Type 6 — Fluffy/mushy',
+  7: 'Type 7 — Watery/liquid'
+};
+
+function initForm() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('entry-date').value =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  document.getElementById('entry-time').value =
+    `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  // Auto-set phase based on procedure date
+  const s = getSettings();
+  if (s.procedureDate) {
+    const today = now.toISOString().slice(0, 10);
+    const phase = today < s.procedureDate ? 'pre' : 'post';
+    document.querySelector(`input[name="phase"][value="${phase}"]`).checked = true;
+    updatePhaseHint(s.procedureDate);
+  }
+}
+
+function updatePhaseHint(procDate) {
+  const hint = document.getElementById('phase-hint');
+  if (!procDate) { hint.textContent = ''; return; }
+  const d = new Date(procDate + 'T12:00:00');
+  hint.textContent = `Procedure scheduled: ${d.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})}`;
+}
+
+function updatePainColor(val) {
+  const badge = document.getElementById('pain-display');
+  badge.style.color = val <= 3 ? 'var(--green)' : val <= 6 ? 'var(--amber)' : 'var(--red)';
+}
+
+function saveEntry() {
+  const date = document.getElementById('entry-date').value;
+  const time = document.getElementById('entry-time').value;
+  if (!date || !time) { showToast('Please set a date and time.'); return; }
+
+  const consistency = document.querySelector('input[name="consistency"]:checked')?.value;
+  if (!consistency) { showToast('Please select stool consistency.'); return; }
+
+  const entry = {
+    id:          Date.now().toString(),
+    date,
+    time,
+    timestamp:   `${date}T${time}`,
+    phase:       document.querySelector('input[name="phase"]:checked').value,
+    consistency: parseInt(consistency),
+    blood:       document.querySelector('input[name="blood"]:checked').value,
+    pain:        parseInt(document.getElementById('pain-slider').value),
+    dilation:    document.querySelector('input[name="dilation"]:checked').value,
+    protection:  document.querySelector('input[name="protection"]:checked').value,
+    notes:       document.getElementById('entry-notes').value.trim()
+  };
+
+  const entries = getEntries();
+  entries.unshift(entry);
+  saveEntries(entries);
+  resetForm();
+  showToast('Entry saved!');
+}
+
+function resetForm() {
+  document.getElementById('entry-notes').value = '';
+  document.getElementById('pain-slider').value = 0;
+  document.getElementById('pain-display').textContent = '0';
+  document.getElementById('pain-display').style.color = '';
+  document.querySelector('input[name="blood"][value="none"]').checked = true;
+  document.querySelector('input[name="consistency"][value="4"]').checked = true;
+  document.querySelector('input[name="dilation"][value="none"]').checked = true;
+  document.querySelector('input[name="protection"][value="none"]').checked = true;
+  initForm(); // reset date/time to now
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════════════════
+function renderHistory() {
+  const filter  = document.getElementById('filter-phase').value;
+  let entries   = getEntries();
+  if (filter !== 'all') entries = entries.filter(e => e.phase === filter);
+
+  const list = document.getElementById('history-list');
+  document.getElementById('history-count').textContent =
+    `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} logged`;
+
+  if (!entries.length) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📝</div>
+        <p>No entries yet.<br>Switch to the <strong>Log</strong> tab to add your first entry.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = entries.map(e => {
+    const dt = new Date(e.timestamp);
+    const dateStr = dt.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric', year:'numeric'});
+    const timeStr = dt.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+    const bloodClass = `blood-${e.blood}`.replace('_','_');
+
+    return `
+    <div class="entry-card ${e.phase}" id="card-${e.id}">
+      <div class="entry-header">
+        <div class="entry-datetime">
+          ${dateStr}
+          <small>${timeStr}</small>
+        </div>
+        <span class="phase-badge ${e.phase}">${e.phase === 'pre' ? 'Pre-Op' : 'Post-Op'}</span>
+      </div>
+      <div class="entry-metrics">
+        <div class="metric">
+          <div class="mlabel">Bristol Type</div>
+          <div class="mval">Type ${e.consistency} — ${bristolShort(e.consistency)}</div>
+        </div>
+        <div class="metric">
+          <div class="mlabel">Blood</div>
+          <div class="mval ${bloodClass}">${bloodLabel(e.blood)}</div>
+        </div>
+        <div class="metric">
+          <div class="mlabel">Pain</div>
+          <div class="mval">${e.pain}/10</div>
+        </div>
+        <div class="metric">
+          <div class="mlabel">Dilation</div>
+          <div class="mval">${capitalize(e.dilation)}</div>
+        </div>
+        <div class="metric">
+          <div class="mlabel">Protection</div>
+          <div class="mval">${protectionLabel(e.protection || 'none')}</div>
+        </div>
+      </div>
+      ${e.notes ? `<div class="entry-notes">"${escHtml(e.notes)}"</div>` : ''}
+      <button class="entry-delete" onclick="deleteEntry('${e.id}')">Delete entry</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  saveEntries(getEntries().filter(e => e.id !== id));
+  renderHistory();
+  showToast('Entry deleted.');
+}
+
+function bristolShort(n) {
+  return ['','Hard lumps','Lumpy','Cracked','Smooth','Soft blobs','Mushy','Watery'][n] || n;
+}
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+const BLOOD_LABELS = {
+  none:          'None',
+  wiping:        'Blood on wiping',
+  trace_bowl:    'Trace in bowl',
+  moderate_bowl: 'Moderate in bowl',
+  severe_bowl:   'Severe in bowl',
+  clots:         'Clots in bowl'
+};
+const PROTECTION_LABELS = {
+  none:  'No protection',
+  tp:    'Toilet paper',
+  pads:  'Pads',
+  other: 'Other protection'
+};
+function bloodLabel(v)      { return BLOOD_LABELS[v]      || capitalize(v); }
+function protectionLabel(v) { return PROTECTION_LABELS[v] || capitalize(v); }
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORT — STATS
+// ═══════════════════════════════════════════════════════════════════
+function renderExport() {
+  const entries = getEntries();
+  const pre  = entries.filter(e => e.phase === 'pre').length;
+  const post = entries.filter(e => e.phase === 'post').length;
+  const avgPain = entries.length
+    ? (entries.reduce((s,e) => s + e.pain, 0) / entries.length).toFixed(1)
+    : '—';
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-box">
+      <div class="sval">${entries.length}</div>
+      <div class="slabel">Total Entries</div>
+    </div>
+    <div class="stat-box">
+      <div class="sval">${pre}</div>
+      <div class="slabel">Pre-Op</div>
+    </div>
+    <div class="stat-box">
+      <div class="sval">${post}</div>
+      <div class="slabel">Post-Op</div>
+    </div>
+    <div class="stat-box">
+      <div class="sval">${avgPain}</div>
+      <div class="slabel">Avg Pain</div>
+    </div>
+    <div class="stat-box">
+      <div class="sval">${entries.filter(e=>e.blood!=='none').length}</div>
+      <div class="slabel">Entries w/ Blood</div>
+    </div>
+    <div class="stat-box">
+      <div class="sval">${entries.filter(e=>e.dilation!=='none').length}</div>
+      <div class="slabel">Dilation Present</div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORT — CSV
+// ═══════════════════════════════════════════════════════════════════
+function getExportRows() {
+  const s = getSettings();
+  return getEntries().map(e => ({
+    'Date':                  e.date,
+    'Time':                  e.time,
+    'Phase':                 e.phase === 'pre' ? 'Pre-Procedure' : 'Post-Procedure',
+    'Bristol Type (1–7)':   e.consistency,
+    'Stool Description':     BRISTOL_LABELS[e.consistency] || e.consistency,
+    'Blood Observed':             bloodLabel(e.blood),
+    'Pain Level (0–10)':         e.pain,
+    'External Dilation':          capitalize(e.dilation),
+    'Underwear Protection Used':  protectionLabel(e.protection || 'none'),
+    'Notes':                      e.notes,
+    'Patient':               s.name || '',
+    'DOB':                   s.dob  || '',
+  }));
+}
+
+function exportCSV() {
+  const rows = getExportRows();
+  if (!rows.length) { showToast('No entries to export.'); return; }
+  const headers = Object.keys(rows[0]);
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => `"${(r[h] ?? '').toString().replace(/"/g,'""')}"`).join(','))
+  ].join('\r\n');
+
+  const s = getSettings();
+  downloadBlob(csvContent, `HAE_Symptom_Log_${s.name || 'Patient'}_${today()}.csv`, 'text/csv');
+  showToast('CSV downloaded!');
+}
+
+function exportExcel() {
+  const rows = getExportRows();
+  if (!rows.length) { showToast('No entries to export.'); return; }
+
+  if (typeof XLSX === 'undefined') {
+    showToast('Excel library not loaded. Use CSV instead.');
+    return;
+  }
+
+  const s    = getSettings();
+  const ws   = XLSX.utils.json_to_sheet(rows);
+  const wb   = XLSX.utils.book_new();
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:12},{wch:8},{wch:15},{wch:16},{wch:28},
+    {wch:16},{wch:18},{wch:18},{wch:40},{wch:20},{wch:12}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Symptom Log');
+  XLSX.writeFile(wb, `HAE_Symptom_Log_${s.name || 'Patient'}_${today()}.xlsx`);
+  showToast('Excel file downloaded!');
+}
+
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], {type: mime});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function today() {
+  return new Date().toISOString().slice(0,10);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORT — EMAIL
+// ═══════════════════════════════════════════════════════════════════
+function sendEmail() {
+  const s        = getSettings();
+  const filter   = document.getElementById('email-filter').value;
+  let   entries  = getEntries();
+  if (filter !== 'all') entries = entries.filter(e => e.phase === filter);
+
+  if (!entries.length) { showToast('No entries to email.'); return; }
+
+  const to      = s.doctorEmail || '';
+  const patient = s.name        || 'Patient';
+  const dob     = s.dob         ? ` (DOB: ${s.dob})` : '';
+  const clinic  = s.clinic      ? `\nClinic: ${s.clinic}` : '';
+  const doctor  = s.doctorName  ? `Dr. ${s.doctorName}` : 'Doctor';
+
+  const subject = encodeURIComponent(
+    `HAE Symptom Log — ${patient} — ${today()}`
+  );
+
+  // Format each entry
+  const lines = entries.map(e => {
+    const dt = new Date(e.timestamp);
+    return [
+      `────────────────────────────`,
+      `Date/Time: ${dt.toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})} at ${dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}`,
+      `Phase: ${e.phase === 'pre' ? 'Pre-Procedure' : 'Post-Procedure'}`,
+      `Bristol Type: ${e.consistency} — ${bristolShort(e.consistency)}`,
+      `Blood: ${bloodLabel(e.blood)}`,
+      `Pain: ${e.pain}/10`,
+      `Dilation: ${capitalize(e.dilation)}`,
+      `Protection: ${protectionLabel(e.protection || 'none')}`,
+      e.notes ? `Notes: ${e.notes}` : null
+    ].filter(Boolean).join('\n');
+  }).join('\n');
+
+  const body = encodeURIComponent(
+`Dear ${doctor},
+
+Please find below the HAE symptom log for:
+Patient: ${patient}${dob}${clinic}
+Exported: ${today()}
+Entries (${filter === 'all' ? 'all phases' : filter + '-procedure only'}): ${entries.length}
+
+${lines}
+
+────────────────────────────
+This log was generated by the HAE Symptom Tracker app.
+A spreadsheet attachment can be downloaded from the Export tab.
+`);
+
+  window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════════════════════════════
+function loadSettings() {
+  const s = getSettings();
+  document.getElementById('s-name').value          = s.name          || '';
+  document.getElementById('s-dob').value           = s.dob           || '';
+  document.getElementById('s-procedure-date').value= s.procedureDate || '';
+  document.getElementById('s-doctor-name').value   = s.doctorName    || '';
+  document.getElementById('s-doctor-email').value  = s.doctorEmail   || '';
+  document.getElementById('s-clinic').value        = s.clinic        || '';
+}
+
+function saveSettings() {
+  const s = {
+    name:          document.getElementById('s-name').value.trim(),
+    dob:           document.getElementById('s-dob').value,
+    procedureDate: document.getElementById('s-procedure-date').value,
+    doctorName:    document.getElementById('s-doctor-name').value.trim(),
+    doctorEmail:   document.getElementById('s-doctor-email').value.trim(),
+    clinic:        document.getElementById('s-clinic').value.trim()
+  };
+  saveSettingsData(s);
+
+  // Update header
+  if (s.name) document.getElementById('hdr-subtitle').textContent =
+    `Patient: ${s.name}${s.clinic ? ' — ' + s.clinic : ''}`;
+
+  updatePhaseHint(s.procedureDate);
+  showToast('Settings saved!');
+}
+
+function clearAllData() {
+  if (!confirm('Delete ALL entries? This cannot be undone.\n\nExport your data first if you want to keep a copy.')) return;
+  localStorage.removeItem(ENTRIES_KEY);
+  showToast('All entries deleted.');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+(function init() {
+  initForm();
+  const s = getSettings();
+  if (s.name) document.getElementById('hdr-subtitle').textContent =
+    `Patient: ${s.name}${s.clinic ? ' — ' + s.clinic : ''}`;
+  if (s.procedureDate) updatePhaseHint(s.procedureDate);
+})();
+</script>
+</body>
+</html>
